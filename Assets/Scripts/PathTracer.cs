@@ -14,7 +14,7 @@ public class PathTracer : MonoBehaviour
 
     private int _currentPolygonIndex = 0;
 
-    private Vector2 _nextPoint;
+    private int _nextIndex;
     private Vector2 _currentPosition;
 
     [Header("Circle Settings")]
@@ -30,11 +30,21 @@ public class PathTracer : MonoBehaviour
     
     private bool _isTracing = false;
 
-    [SerializeField] private Slider _traceSpeedSlider;
     private bool _isReversed = false;
+
+    [SerializeField] private Slider _traceSpeedSlider;
+    
     [SerializeField] private Toggle _reverseToggle;
 
-    private enum ShapeType
+    [Header("Sphere Settings")]
+    [SerializeField] private GameObject _spherePrefab;
+    [SerializeField] private float _sphereRadius = .5f;
+    [SerializeField] private List<GameObject> _currentSpheres = new List<GameObject>();
+    private float _pathLength;
+    [SerializeField] private Transform _sphereHolder;
+
+
+    public enum ShapeType
     {
         Square,
         Triangle,
@@ -47,21 +57,183 @@ public class PathTracer : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
-
-
+        //AddSphere();
     }
 
     // Update is called once per frame
     void Update()
     {
-        if(_isTracing)
-        {
-            if (_currentShapeType == ShapeType.Square || _currentShapeType == ShapeType.Triangle)
-                TracePolygon();
-            else if (_currentShapeType == ShapeType.Circle)
-                TraceCircle();
-        }
     }
+
+    #region Adding and Removing Spheres
+
+    private float CalculatePathLength(Transform[] path)
+    {
+        float length = 0;
+        if(_currentShapeType == ShapeType.Circle)
+        {
+            length = (2 * Mathf.PI) * _circleRadius;
+        }
+        else
+        {
+            //polygon path
+            for (int i = 0; i < _currentPointTransforms.Length - 1; i++)
+            {
+                length += Vector2.Distance(path[i].position, path[i + 1].position);
+            }
+            length += Vector2.Distance(path[path.Length - 1].position, path[0].position);
+        }
+        
+        return length;
+    }
+
+    private Vector2 GetPositionAlongPath(Transform[] path, float length)
+    {
+        Vector2 position = Vector2.zero;
+        float lengthWalked = 0;
+        float segmentLength;
+        for (int i = 0; i < path.Length - 1; i++)
+        {
+            segmentLength = Vector2.Distance(path[i].position, path[i + 1].position);
+            lengthWalked += segmentLength;
+            if ( lengthWalked >= length )
+            {
+                float lengthAtPrevSeg = GetLengthAtPathPosition(i);
+                float distanceIntoSeg = length - lengthAtPrevSeg;
+                //position must be between positions i and i + 1
+                position = Vector2.Lerp(path[i].position, path[i+1].position, distanceIntoSeg / segmentLength);
+                if(!_isReversed)
+                {
+                    _nextIndex = i + 1;
+                }
+                else
+                {
+                    _nextIndex = i;
+                }
+
+                return position;
+            }
+        }
+
+        //last segment
+        segmentLength = Vector2.Distance(path[path.Length - 1].position, path[0].position);
+        lengthWalked += segmentLength;
+
+        if (lengthWalked >= length)
+        {
+            float lengthAtPrevSeg = GetLengthAtPathPosition(path.Length - 1);
+            float distanceIntoSeg = length - lengthAtPrevSeg;
+            //position must be between last and first point
+            position = Vector2.Lerp(path[path.Length - 1].position, path[0].position, distanceIntoSeg / segmentLength);
+            if(!_isReversed)
+            {
+                _nextIndex = 0;
+            }
+            else
+            {
+                _nextIndex = path.Length - 1;
+            }
+
+            return position;
+        }
+
+        Debug.LogError("No position found");
+        return position;
+    }
+
+    private float GetLengthAtPathPosition(int pathIndex) 
+    {
+        float lengthWalked = 0;
+        if (pathIndex == 0)
+            return 0;
+        else
+        {
+            for (int i = 0; i < pathIndex; i++)
+            {
+                lengthWalked += Vector2.Distance(_currentPointTransforms[i].position, _currentPointTransforms[i + 1].position);
+                if(i+1 == pathIndex)
+                {
+                    return lengthWalked;
+                }
+            }
+            lengthWalked += Vector2.Distance(_currentPointTransforms[_currentPointTransforms.Length - 1].position, _currentPointTransforms[0].position);
+
+            if(pathIndex == _currentPointTransforms.Length - 1)
+                return lengthWalked;
+
+            Debug.LogError("index not reached");
+            return -1;
+        }
+        
+    }
+
+    private int GetMaxSpheres()
+    {
+        if(_currentPointTransforms != null || _currentShapeType == ShapeType.Circle)
+        {
+            _pathLength = CalculatePathLength(_currentPointTransforms);
+
+            int maxSpheres = Mathf.FloorToInt(_pathLength / (2f * _sphereRadius));
+            return maxSpheres;
+        }
+        else
+        {
+            Debug.Log("error getting max spheres");
+            return -1;
+        }
+
+    }
+
+    private void DistributeSpheres()
+    {
+        _pathLength = CalculatePathLength(_currentPointTransforms);
+        float distBetweenSpheres = _pathLength / _currentSpheres.Count;
+
+        float curLengthAlongPath = 0;
+
+        //polygon
+        if(_currentShapeType != ShapeType.Circle)
+        {
+            for(int i = 0; i < _currentSpheres.Count; i++)
+            {
+                Vector2 newPos = GetPositionAlongPath(_currentPointTransforms, curLengthAlongPath);
+                _currentSpheres[i].transform.position = newPos;
+                _currentSpheres[i].GetComponent<SphereObject>()._data._nextIndex = _nextIndex;
+                curLengthAlongPath += distBetweenSpheres;
+            }
+        }
+        else
+        {
+            //circle
+            for (int i = 0; i < _currentSpheres.Count; i++)
+            {
+                float angle = (2 * Mathf.PI / _currentSpheres.Count) * i;
+                float x = Mathf.Cos(angle) * _circleRadius;
+                float y = Mathf.Sin(angle) * _circleRadius;
+                _currentSpheres[i].transform.position = new Vector2(_centerPoint.x + x, _centerPoint.y - y);
+                _currentSpheres[i].GetComponent<SphereObject>()._data._angle = angle;
+            }
+        }
+        
+    }
+
+    public void AddSphere()
+    {
+        if(GetMaxSpheres() <= _currentSpheres.Count)
+        {
+            Debug.Log("Sphere max already reached");
+            return;
+        }
+        GameObject newSphere = Instantiate(_spherePrefab, _sphereHolder);
+        _currentSpheres.Add(newSphere);
+        SphereObject sphere = newSphere.GetComponent<SphereObject>();
+        sphere.SetSphereData(_currentPointTransforms, _currentPolygonIndex, _nextIndex, _currentPosition, _angle, _traceSpeed,
+            _circleRadius, _centerPoint, _isTracing, _isReversed, _currentShapeType);
+
+        DistributeSpheres();
+    }
+
+    #endregion
 
     #region Trace UI
 
@@ -69,7 +241,11 @@ public class PathTracer : MonoBehaviour
     {
         if(_traceSpeedSlider != null)
         {
-            _traceSpeed = _traceSpeedSlider.value;
+            foreach (GameObject sphere in _currentSpheres)
+            {
+                SphereObject sphereScript = sphere.GetComponent<SphereObject>();
+                sphereScript._data._traceSpeed = _traceSpeedSlider.value;
+            }
         }
     }
 
@@ -79,24 +255,28 @@ public class PathTracer : MonoBehaviour
         {
             _isReversed = !_isReversed;
 
-            //if tracing polygons
-            if(_currentPointTransforms != null)
+            foreach(GameObject sphere in _currentSpheres)
             {
-                if (_isReversed)
-                {
-                    _currentPolygonIndex--;
-                    if (_currentPolygonIndex < 0)
-                        _currentPolygonIndex = _currentPointTransforms.Length - 1;
-                }
-                else
-                {
-                    _currentPolygonIndex++;
-                    if(_currentPolygonIndex > _currentPointTransforms.Length - 1)
-                        _currentPolygonIndex = 0;
-                }
+                SphereObject sphereScript = sphere.GetComponent<SphereObject>();
 
-                _nextPoint = _currentPointTransforms[_currentPolygonIndex].position;
-            }
+                //if tracing polygons
+                if (_currentPointTransforms != null)
+                {
+                    if (_isReversed)
+                    {
+                        sphereScript._data._currentPolygonIndex--;
+                        if (sphereScript._data._currentPolygonIndex < 0)
+                            sphereScript._data._currentPolygonIndex = sphereScript._data._currentPointTransforms.Length - 1;
+                    }
+                    else
+                    {
+                        sphereScript._data._currentPolygonIndex++;
+                        if (sphereScript._data._currentPolygonIndex > sphereScript._data._currentPointTransforms.Length - 1)
+                            sphereScript._data._currentPolygonIndex = 0;
+                    }
+                    sphereScript._data._nextIndex = sphereScript._data._currentPolygonIndex;
+                }
+            }  
         }
     }
 
@@ -119,51 +299,15 @@ public class PathTracer : MonoBehaviour
                 _currentPointTransforms = null;
                 break;
         }
-    }
 
-
-    private void TracePolygon()
-    {
-
-        _nextPoint = _currentPointTransforms[_currentPolygonIndex].position;
-        _currentPosition = _sphere.position;
-
-        //move target sphere toward next point
-        _sphere.position = Vector2.MoveTowards(_currentPosition, _nextPoint, _traceSpeed * Time.deltaTime);
-
-        //check if we've reached next point
-        if(Vector2.Distance(_currentPosition, _nextPoint) < 0.01f)
+        foreach (GameObject sphere in _currentSpheres)
         {
-            if(!_isReversed)
-            {
-                _currentPolygonIndex++;
+            SphereObject sphereScript = sphere.GetComponent<SphereObject>();
 
-                //reset path before going out of bounds
-                if (_currentPolygonIndex > _currentPointTransforms.Length - 1)
-                    _currentPolygonIndex = 0;
-            }
-            else
-            {
-                _currentPolygonIndex--;
-
-                //reset path before going out of bounds
-                if (_currentPolygonIndex < 0)
-                    _currentPolygonIndex = _currentPointTransforms.Length - 1;
-            }
-            
+            sphereScript._data._currentShapeType = shape;
+            sphereScript._data._currentPointTransforms = _currentPointTransforms;
         }
-    }
-
-    private void TraceCircle()
-    {
-        if (!_isReversed)
-            _angle += _traceSpeed * Time.deltaTime;
-        else
-            _angle -= _traceSpeed * Time.deltaTime;
-
-        float x = Mathf.Cos(_angle) * _circleRadius;
-        float y = Mathf.Sin(_angle) * _circleRadius;
-        _sphere.position = new Vector2(_centerPoint.x + x, _centerPoint.y - y);
+        DistributeSpheres();
     }
 
     #endregion
@@ -174,18 +318,34 @@ public class PathTracer : MonoBehaviour
     {
         _currentShapeType = ShapeType.Square;
         TracePath(_currentShapeType);
+        PruneSpheres();
     }
 
     public void TriangleButton()
     {
         _currentShapeType = ShapeType.Triangle;
         TracePath(_currentShapeType);
+        PruneSpheres();
     }
 
     public void CircleButton()
     {
         _currentShapeType = ShapeType.Circle;
         TracePath(_currentShapeType);
+        PruneSpheres();
+    }
+
+    private void PruneSpheres()
+    {
+        if (GetMaxSpheres() < _currentSpheres.Count)
+        {
+            Debug.Log("pruned");
+            for (int i = GetMaxSpheres(); i < _currentSpheres.Count; i++)
+            {
+                Destroy(_currentSpheres[i]);
+                _currentSpheres.RemoveAt(i);
+            }
+        }
     }
 
     #endregion
