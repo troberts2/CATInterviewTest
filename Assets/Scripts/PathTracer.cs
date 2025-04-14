@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using DG.Tweening;
 
 public class PathTracer : MonoBehaviour
 {
@@ -278,6 +279,32 @@ public class PathTracer : MonoBehaviour
                 }
             }  
         }
+    }
+
+    public void OnBallsDropped()
+    {
+        StartCoroutine(DropBalls());
+    }
+
+    private IEnumerator DropBalls()
+    {
+        foreach(GameObject sphere in _currentSpheres)
+        {
+            SphereObject sphereScript = sphere.GetComponent<SphereObject>();
+            sphereScript._data._isTracing = false;
+            Vector2 endPos = new Vector2(sphere.transform.position.x, -15f);
+            sphere.transform.DOMove(endPos, 1f, false).SetEase(Ease.InBack);
+            yield return new WaitForSeconds(.1f);
+        }
+        yield return new WaitForSeconds(3f);
+
+        foreach (GameObject sphere in _currentSpheres)
+        {
+            SphereObject sphereScript = sphere.GetComponent<SphereObject>();
+            sphereScript._data._isTracing = true;
+        }
+
+        DistributeSpheres();
     }
 
     #endregion
