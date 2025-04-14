@@ -50,7 +50,11 @@ public class SphereObject : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
-        
+        void Start()
+        {
+            Renderer r = GetComponent<Renderer>();
+            r.material = new Material(r.material); // clone material
+        }
     }
 
     // Update is called once per frame
@@ -105,6 +109,7 @@ public class SphereObject : MonoBehaviour
             _data._angle += _data._traceSpeed * Time.deltaTime;
         else
             _data._angle -= _data._traceSpeed * Time.deltaTime;
+
 
         float x = Mathf.Cos(_data._angle) * _data._circleRadius;
         float y = Mathf.Sin(_data._angle) * _data._circleRadius;

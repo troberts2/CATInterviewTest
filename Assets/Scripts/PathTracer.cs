@@ -64,6 +64,7 @@ public class PathTracer : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
+        UpdateSphereColors(_currentSpheres, _currentPointTransforms);
     }
 
     #region Adding and Removing Spheres
@@ -86,6 +87,75 @@ public class PathTracer : MonoBehaviour
         }
         
         return length;
+    }
+
+    private float GetDistanceAlongPath(Vector2 position, Transform[] path)
+    {
+        float total = 0f;
+        for (int i = 0; i < path.Length - 1; i++) 
+        {
+            Vector2 a = path[i].position;
+            Vector2 b = path[i + 1].position;
+
+            float segmentLength = Vector2.Distance(a, b);
+            float toPoint = Vector2.Distance(a, position);
+            float toEnd = Vector2.Distance(b, position);
+
+            // Check if position is between a and b
+            float dot = Vector2.Dot((position - a).normalized, (b - a).normalized);
+            if (dot > 0.99f && toPoint + toEnd - segmentLength < 0.01f)
+            {
+                return total + toPoint;
+            }
+
+            total += segmentLength;
+        }
+
+        return total; // fallback
+    }
+
+    private Color GetColorFromPathProgress(float progress)
+    {
+        Color startColor = Color.blue;
+        Color endColor = Color.red;
+        return Color.Lerp(startColor, endColor, progress);
+    }
+
+    private void UpdateSphereColors(List<GameObject> spheres, Transform[] path)
+    {
+        //if tracing circle
+        if(_currentShapeType == ShapeType.Circle)
+        {
+            foreach(var sphere in spheres)
+            {
+                SphereObject sphereScript = sphere.GetComponent<SphereObject>();
+                float distance = sphereScript._data._angle;
+                float normalizedAngle = (sphereScript._data._angle % (2 * Mathf.PI)) / (2 * Mathf.PI);
+                if (normalizedAngle < 0f)
+                    normalizedAngle += 1f; // ensure it's always between 0–1
+                Color color = GetColorFromPathProgress(normalizedAngle);
+
+                // Set the color (requires SpriteRenderer or Material)
+                var renderer = sphere.GetComponent<Renderer>();
+                if (renderer != null)
+                    renderer.material.color = color;
+            }
+        }
+        else
+        {
+            //if polygon
+            foreach (var sphere in spheres)
+            {
+                float distance = GetDistanceAlongPath(sphere.transform.position, path);
+                float t = Mathf.Clamp01(distance / _pathLength);
+                Color color = GetColorFromPathProgress(t);
+
+                // Set the color (requires SpriteRenderer or Material)
+                var renderer = sphere.GetComponent<Renderer>();
+                if (renderer != null)
+                    renderer.material.color = color;
+            }
+        }  
     }
 
     private Vector2 GetPositionAlongPath(Transform[] path, float length)
