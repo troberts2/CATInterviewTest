@@ -11,6 +11,8 @@ public class PathTracer : MonoBehaviour
 
     [SerializeField] private Transform[] _trianglePathPointTransforms;
 
+    [SerializeField] private Transform[] _irregularPathPointTransforms;
+
     private Transform[] _currentPointTransforms;
 
     private int _currentPolygonIndex = 0;
@@ -50,6 +52,7 @@ public class PathTracer : MonoBehaviour
         Square,
         Triangle,
         Circle,
+        Irregular,
         None
     }
 
@@ -312,10 +315,11 @@ public class PathTracer : MonoBehaviour
     {
         if(_traceSpeedSlider != null)
         {
+            _traceSpeed = _traceSpeedSlider.value;
             foreach (GameObject sphere in _currentSpheres)
             {
                 SphereObject sphereScript = sphere.GetComponent<SphereObject>();
-                sphereScript._data._traceSpeed = _traceSpeedSlider.value;
+                sphereScript._data._traceSpeed = _traceSpeed;
             }
         }
     }
@@ -329,23 +333,28 @@ public class PathTracer : MonoBehaviour
             foreach(GameObject sphere in _currentSpheres)
             {
                 SphereObject sphereScript = sphere.GetComponent<SphereObject>();
+                sphereScript._data._isReversed = _isReversed;
 
                 //if tracing polygons
                 if (_currentPointTransforms != null)
                 {
                     if (_isReversed)
                     {
-                        sphereScript._data._currentPolygonIndex--;
-                        if (sphereScript._data._currentPolygonIndex < 0)
-                            sphereScript._data._currentPolygonIndex = sphereScript._data._currentPointTransforms.Length - 1;
+                        sphereScript._data._nextIndex--;
+                        if (sphereScript._data._nextIndex < 0)
+                            sphereScript._data._nextIndex = sphereScript._data._currentPointTransforms.Length - 1;
+
+                        sphereScript._data._nextPoint = _currentPointTransforms[sphereScript._data._nextIndex].position;
                     }
                     else
                     {
-                        sphereScript._data._currentPolygonIndex++;
-                        if (sphereScript._data._currentPolygonIndex > sphereScript._data._currentPointTransforms.Length - 1)
-                            sphereScript._data._currentPolygonIndex = 0;
+                        sphereScript._data._nextIndex++;
+                        if (sphereScript._data._nextIndex > sphereScript._data._currentPointTransforms.Length - 1)
+                            sphereScript._data._nextIndex = 0;
+
+                        sphereScript._data._nextPoint = _currentPointTransforms[sphereScript._data._nextIndex].position;
                     }
-                    sphereScript._data._nextIndex = sphereScript._data._currentPolygonIndex;
+                    //sphereScript._data._nextIndex = sphereScript._data._currentPolygonIndex;
                 }
             }  
         }
@@ -392,6 +401,9 @@ public class PathTracer : MonoBehaviour
             case ShapeType.Triangle:
                 _currentPointTransforms = _trianglePathPointTransforms;
                 break;
+            case ShapeType.Irregular:
+                _currentPointTransforms = _irregularPathPointTransforms;
+                break;
             case ShapeType.Circle:
                 _currentPointTransforms = null;
                 break;
@@ -428,6 +440,13 @@ public class PathTracer : MonoBehaviour
     public void CircleButton()
     {
         _currentShapeType = ShapeType.Circle;
+        TracePath(_currentShapeType);
+        PruneSpheres();
+    }
+
+    public void IrregularButton()
+    {
+        _currentShapeType = ShapeType.Irregular;
         TracePath(_currentShapeType);
         PruneSpheres();
     }
