@@ -24,6 +24,8 @@ public class SphereObject : MonoBehaviour
 
         public bool _isReversed;
 
+        public Vector2 _nextPoint;
+
         public PathTracer.ShapeType _currentShapeType;
     }
 
@@ -50,11 +52,8 @@ public class SphereObject : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
-        void Start()
-        {
-            Renderer r = GetComponent<Renderer>();
-            r.material = new Material(r.material); // clone material
-        }
+        Renderer r = GetComponent<Renderer>();
+        r.material = new Material(r.material); // clone material
     }
 
     // Update is called once per frame
@@ -62,25 +61,25 @@ public class SphereObject : MonoBehaviour
     {
         if (_data._isTracing)
         {
-            if (_data._currentShapeType == PathTracer.ShapeType.Square || _data._currentShapeType == PathTracer.ShapeType.Triangle)
+            if (_data._currentShapeType == PathTracer.ShapeType.Square || _data._currentShapeType == PathTracer.ShapeType.Triangle || _data._currentShapeType == PathTracer.ShapeType.Irregular)
                 TracePolygon();
             else if (_data._currentShapeType == PathTracer.ShapeType.Circle)
                 TraceCircle();
         }
     }
 
-    private Vector2 _nextPoint;
+    
     private void TracePolygon()
     {
 
-        _nextPoint = _data._currentPointTransforms[_data._nextIndex].position;
+        _data._nextPoint = _data._currentPointTransforms[_data._nextIndex].position;
         _data._currentPosition = transform.position;
 
         //move target sphere toward next point
-        transform.position = Vector2.MoveTowards(transform.position, _nextPoint, _data._traceSpeed * Time.deltaTime);
+        transform.position = Vector2.MoveTowards(transform.position, _data._nextPoint, _data._traceSpeed * Time.deltaTime);
 
         //check if we've reached next point
-        if (Vector2.Distance(transform.position, _nextPoint) < 0.01f)
+        if (Vector2.Distance(transform.position, _data._nextPoint) < 0.01f)
         {
             if (!_data._isReversed)
             {
@@ -99,7 +98,7 @@ public class SphereObject : MonoBehaviour
                     _data._nextIndex = _data._currentPointTransforms.Length - 1;
             }
 
-            _nextPoint = _data._currentPointTransforms[_data._nextIndex].position;
+            _data._nextPoint = _data._currentPointTransforms[_data._nextIndex].position;
         }
     }
 
