@@ -1,9 +1,20 @@
-using System.Collections;
-using System.Collections.Generic;
+/*****************************************************************************
+// File Name :         PathTracer.cs
+// Author :            Tommy Roberts
+// Creation Date :     4/12/25
+//
+// Brief Description : Holds the functionality for the spheres
+*****************************************************************************/
 using UnityEngine;
 
+/// <summary>
+/// holds data and functionality of the spheres
+/// </summary>
 public class SphereObject : MonoBehaviour
 {
+    /// <summary>
+    /// holds all of the data and settings for the sphere
+    /// </summary>
     public struct SphereData
     {
         public Transform[] _currentPointTransforms;
@@ -31,7 +42,20 @@ public class SphereObject : MonoBehaviour
 
     public SphereData _data;
 
-
+    /// <summary>
+    /// Sets the sphere data 
+    /// </summary>
+    /// <param name="currentPointTransforms"></param>
+    /// <param name="index"></param>
+    /// <param name="nextIndex"></param>
+    /// <param name="currentPos"></param>
+    /// <param name="angle"></param>
+    /// <param name="traceSpeed"></param>
+    /// <param name="circleRadius"></param>
+    /// <param name="centerPoint"></param>
+    /// <param name="isTracing"></param>
+    /// <param name="isReversed"></param>
+    /// <param name="currentShape"></param>
     public void SetSphereData(Transform[] currentPointTransforms, int index, int nextIndex, Vector2 currentPos, float angle, float traceSpeed,
         float circleRadius, Vector2 centerPoint, bool isTracing, bool isReversed, PathTracer.ShapeType currentShape)
     {
@@ -49,14 +73,18 @@ public class SphereObject : MonoBehaviour
     }
 
 
-    // Start is called before the first frame update
+    /// <summary>
+    /// creates an instance of the renderers material so all colors arent the same
+    /// </summary>
     void Start()
     {
         Renderer r = GetComponent<Renderer>();
         r.material = new Material(r.material); // clone material
     }
 
-    // Update is called once per frame
+    /// <summary>
+    /// calls the trace shape functions
+    /// </summary>
     void Update()
     {
         if (_data._isTracing)
@@ -68,7 +96,9 @@ public class SphereObject : MonoBehaviour
         }
     }
 
-    
+    /// <summary>
+    /// trace function for any polygon
+    /// </summary>
     private void TracePolygon()
     {
 
@@ -102,6 +132,9 @@ public class SphereObject : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// trace function for circle
+    /// </summary>
     private void TraceCircle()
     {
         if (!_data._isReversed)
@@ -114,6 +147,4 @@ public class SphereObject : MonoBehaviour
         float y = Mathf.Sin(_data._angle) * _data._circleRadius;
         transform.position = new Vector2(_data._centerPoint.x + x, _data._centerPoint.y - y);
     }
-
-    
 }

@@ -1,3 +1,10 @@
+/*****************************************************************************
+// File Name :         PathTracer.cs
+// Author :            Tommy Roberts
+// Creation Date :     4/12/25
+//
+// Brief Description : Holds most of the functionality for the CAT programming test
+*****************************************************************************/
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -5,6 +12,9 @@ using UnityEngine.UI;
 using DG.Tweening;
 using System.Linq;
 
+/// <summary>
+/// holds all data and settings for path tracing. Contains UI functionality
+/// </summary>
 public class PathTracer : MonoBehaviour
 {
     [Header("Polygons Settings")]
@@ -42,6 +52,7 @@ public class PathTracer : MonoBehaviour
     
     [SerializeField] private Toggle _reverseToggle;
     [SerializeField] private Toggle _meshDrawToggle;
+    [SerializeField] private Toggle _traceToggle;
 
     [Header("Sphere Settings")]
     [SerializeField] private GameObject _spherePrefab;
@@ -52,6 +63,15 @@ public class PathTracer : MonoBehaviour
 
     [SerializeField] private MeshFilter mf;
 
+    [SerializeField] private Image _addSphereButtonImage;
+    [SerializeField] private Image _removeSphereButtonImage;
+    [SerializeField] private Image _ballsDroppedButtonImage;
+
+    [SerializeField] private Image _squareButton;
+    [SerializeField] private Image _triangleButton;
+    [SerializeField] private Image _circleButton;
+    [SerializeField] private Image _irregularButton;
+    [SerializeField] private Image _hightlightImage;
 
     public enum ShapeType
     {
@@ -63,15 +83,20 @@ public class PathTracer : MonoBehaviour
         None
     }
 
-    private ShapeType _currentShapeType = ShapeType.None;
+    private ShapeType _currentShapeType = ShapeType.Square;
 
-    // Start is called before the first frame update
+    /// <summary>
+    /// sets initial shape type to be a square
+    /// </summary>
     void Start()
     {
-        
+        _currentShapeType = ShapeType.Square;
+        _currentPointTransforms = _squarePathPointTransforms;
     }
 
-    // Update is called once per frame
+    /// <summary>
+    /// Calls the sphere update color function
+    /// </summary>
     void Update()
     {
         UpdateSphereColors(_currentSpheres, _currentPointTransforms);
@@ -79,6 +104,11 @@ public class PathTracer : MonoBehaviour
 
     #region Adding and Removing Spheres
 
+    /// <summary>
+    /// calculates total length of current path
+    /// </summary>
+    /// <param name="path"></param>
+    /// <returns></returns>
     private float CalculatePathLength(Transform[] path)
     {
         float length = 0;
@@ -99,6 +129,12 @@ public class PathTracer : MonoBehaviour
         return length;
     }
 
+    /// <summary>
+    /// Gets the distance along the path at a certain path index
+    /// </summary>
+    /// <param name="position"></param>
+    /// <param name="path"></param>
+    /// <returns></returns>
     private float GetDistanceAlongPath(Vector2 position, Transform[] path)
     {
         float total = 0f;
@@ -124,6 +160,11 @@ public class PathTracer : MonoBehaviour
         return total; // fallback
     }
 
+    /// <summary>
+    /// gets a color based on path completion
+    /// </summary>
+    /// <param name="progress"></param>
+    /// <returns></returns>
     private Color GetColorFromPathProgress(float progress)
     {
         Color startColor = Color.blue;
@@ -131,6 +172,11 @@ public class PathTracer : MonoBehaviour
         return Color.Lerp(startColor, endColor, progress);
     }
 
+    /// <summary>
+    /// updates all the spheres material colors
+    /// </summary>
+    /// <param name="spheres"></param>
+    /// <param name="path"></param>
     private void UpdateSphereColors(List<GameObject> spheres, Transform[] path)
     {
         //if tracing circle
@@ -168,6 +214,12 @@ public class PathTracer : MonoBehaviour
         }  
     }
 
+    /// <summary>
+    /// gets positions along the path at a certain length into it
+    /// </summary>
+    /// <param name="path"></param>
+    /// <param name="length"></param>
+    /// <returns></returns>
     private Vector2 GetPositionAlongPath(Transform[] path, float length)
     {
         Vector2 position = Vector2.zero;
@@ -221,7 +273,12 @@ public class PathTracer : MonoBehaviour
         Debug.LogError("No position found");
         return position;
     }
-
+    
+    /// <summary>
+    /// Gets the path length at the specified point
+    /// </summary>
+    /// <param name="pathIndex"></param>
+    /// <returns></returns>
     private float GetLengthAtPathPosition(int pathIndex) 
     {
         float lengthWalked = 0;
@@ -248,6 +305,10 @@ public class PathTracer : MonoBehaviour
         
     }
 
+    /// <summary>
+    /// gets the maximum number of spheres that can fit on current path
+    /// </summary>
+    /// <returns></returns>
     private int GetMaxSpheres()
     {
         if(_currentPointTransforms != null || _currentShapeType == ShapeType.Circle)
@@ -265,6 +326,9 @@ public class PathTracer : MonoBehaviour
 
     }
 
+    /// <summary>
+    /// Distributes the spheres with equal distance between them along path
+    /// </summary>
     private void DistributeSpheres()
     {
         _pathLength = CalculatePathLength(_currentPointTransforms);
@@ -298,14 +362,21 @@ public class PathTracer : MonoBehaviour
         
     }
 
+    /// <summary>
+    /// Adds a sphere to the mix
+    /// </summary>
     public void AddSphere()
     {
         if(GetMaxSpheres() <= _currentSpheres.Count)
         {
             Debug.Log("Sphere max already reached");
+            _addSphereButtonImage.color = Color.red;
+            _addSphereButtonImage.DOColor(Color.white, .5f);
             return;
         }
         GameObject newSphere = Instantiate(_spherePrefab, _sphereHolder);
+        newSphere.transform.localScale = Vector3.zero;
+        newSphere.transform.DOScale(Vector3.one * _sphereRadius * 2, .2f).SetEase(Ease.InSine);
         _currentSpheres.Add(newSphere);
         SphereObject sphere = newSphere.GetComponent<SphereObject>();
         sphere.SetSphereData(_currentPointTransforms, _currentPolygonIndex, _nextIndex, _currentPosition, _angle, _traceSpeed,
@@ -314,10 +385,41 @@ public class PathTracer : MonoBehaviour
         DistributeSpheres();
     }
 
+    /// <summary>
+    /// removes a sphere from the mix
+    /// </summary>
+    public void RemoveSphere()
+    {
+        if(_currentSpheres.Count <= 0)
+        {
+            Debug.Log("No spheres to remove");
+            _removeSphereButtonImage.color = Color.red;
+            _removeSphereButtonImage.DOColor(Color.white, .5f);
+            return;
+        }
+
+        _currentSpheres[_currentSpheres.Count - 1].transform.DOScale(Vector3.zero, .2f).SetEase(Ease.OutSine);
+        Invoke(nameof(DestroyLastSphere), .2f);
+
+        DistributeSpheres();
+    }
+
+    /// <summary>
+    /// Destroys the last sphere in the current sphere list
+    /// </summary>
+    private void DestroyLastSphere()
+    {
+        Destroy(_currentSpheres[_currentSpheres.Count - 1]);
+        _currentSpheres.RemoveAt(_currentSpheres.Count - 1);
+    }
+
     #endregion
 
     #region Trace UI
 
+    /// <summary>
+    /// changes trace speed of spheres according to the slider
+    /// </summary>
     public void OnSpeedSliderChanged()
     {
         if(_traceSpeedSlider != null)
@@ -331,6 +433,9 @@ public class PathTracer : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// changes reverse or not based on UI toggle
+    /// </summary>
     public void OnReverseToggle()
     {
         if(_reverseToggle != null)
@@ -361,36 +466,59 @@ public class PathTracer : MonoBehaviour
 
                         sphereScript._data._nextPoint = _currentPointTransforms[sphereScript._data._nextIndex].position;
                     }
-                    //sphereScript._data._nextIndex = sphereScript._data._currentPolygonIndex;
                 }
             }  
         }
     }
 
+    /// <summary>
+    /// Changes whether app draws mesh based on toggle
+    /// </summary>
     public void OnMeshDrawToggle()
     {
         if(_meshDrawToggle != null)
         {
-            if( _meshDrawToggle.isOn && _currentShapeType != ShapeType.Circle)
+            if( _meshDrawToggle.isOn)
             {
-                Vector2[] points = _currentPointTransforms.Select(t => (Vector2)t.position).ToArray();
+                if (_currentShapeType != ShapeType.Circle)
+                {
+                    Vector2[] points = _currentPointTransforms.Select(t => (Vector2)t.position).ToArray();
 
-                mf.mesh = Generate2DMesh(points);
+                    mf.mesh = Generate2DMesh(points);
+                }
+                else
+                {
+                    //is circle
+                    mf.mesh = Generate2DMesh(GenerateCirclePoints(_centerPoint, _circleRadius, 36));
+                } 
             }
             else
             {
                 mf.mesh.Clear();
                 mf.mesh = new Mesh();
             }
-
         }
     }
 
+    /// <summary>
+    /// Starts the coroutine for dropping the balls off screen
+    /// </summary>
     public void OnBallsDropped()
     {
-        StartCoroutine(DropBalls());
+        if(_ballsDropped == null && _currentSpheres.Count > 0)
+            _ballsDropped = StartCoroutine(DropBalls());
+        else
+        {
+            _ballsDroppedButtonImage.color = Color.red;
+            _ballsDroppedButtonImage.DOColor(Color.white, .5f);
+        }
     }
 
+    private Coroutine _ballsDropped;
+    /// <summary>
+    /// Drops the balls off the screen and returns them after a few seconds
+    /// </summary>
+    /// <returns></returns>
     private IEnumerator DropBalls()
     {
         foreach(GameObject sphere in _currentSpheres)
@@ -410,15 +538,19 @@ public class PathTracer : MonoBehaviour
         }
 
         DistributeSpheres();
+        _ballsDropped = null;
     }
 
     #endregion
 
     #region Trace Functionality
 
+    /// <summary>
+    /// sets the current path to whatever button was clicked
+    /// </summary>
+    /// <param name="shape"></param>
     private void TracePath(ShapeType shape)
     {
-        _isTracing = true;
         switch (shape)
         {
             case ShapeType.Square:
@@ -447,11 +579,20 @@ public class PathTracer : MonoBehaviour
         }
         DistributeSpheres();
 
-        if(_currentShapeType != ShapeType.Circle && _meshDrawToggle.isOn)
+        if(_meshDrawToggle.isOn)
         {
-            Vector2[] points = _currentPointTransforms.Select(t => (Vector2)t.position).ToArray();
+            if(_currentShapeType != ShapeType.Circle)
+            {
+                Vector2[] points = _currentPointTransforms.Select(t => (Vector2)t.position).ToArray();
 
-            mf.mesh = Generate2DMesh(points);
+                mf.mesh = Generate2DMesh(points);
+            }
+            else
+            {
+                //is a circle
+                mf.mesh = Generate2DMesh(GenerateCirclePoints(_centerPoint, _circleRadius, 36));
+            }
+            
         }
         else
         {
@@ -460,52 +601,136 @@ public class PathTracer : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// enables or disables the spheres from moving based on toggle value
+    /// </summary>
+    public void OnTraceToggle()
+    {
+        if(_traceToggle != null)
+        {
+            if(_traceToggle.isOn)
+            {
+                _isTracing = true;
+            }
+            else
+            {
+                _isTracing = false;
+            }
+            foreach (GameObject sphere in _currentSpheres)
+            {
+                SphereObject sphereScript = sphere.GetComponent<SphereObject>();
+                sphereScript._data._isTracing = _isTracing;
+            }
+        }
+    }
+
     #endregion
 
     #region Buttons In Unity
 
+    /// <summary>
+    /// sets path to square
+    /// </summary>
     public void SquareButton()
     {
         _currentShapeType = ShapeType.Square;
         TracePath(_currentShapeType);
+        MoveImageAOnTopOfImageB(_hightlightImage.GetComponent<RectTransform>(), _squareButton.GetComponent<RectTransform>());
         PruneSpheres();
     }
 
+    /// <summary>
+    /// sets path to triangle
+    /// </summary>
     public void TriangleButton()
     {
         _currentShapeType = ShapeType.Triangle;
         TracePath(_currentShapeType);
+        MoveImageAOnTopOfImageB(_hightlightImage.GetComponent<RectTransform>(), _triangleButton.GetComponent<RectTransform>());
         PruneSpheres();
     }
 
+    /// <summary>
+    /// sets path to circle
+    /// </summary>
     public void CircleButton()
     {
         _currentShapeType = ShapeType.Circle;
         TracePath(_currentShapeType);
+        MoveImageAOnTopOfImageB(_hightlightImage.GetComponent<RectTransform>(), _circleButton.GetComponent<RectTransform>());
         PruneSpheres();
     }
 
+    /// <summary>
+    /// sets path to irregular shape
+    /// </summary>
     public void IrregularButton()
     {
         _currentShapeType = ShapeType.Irregular;
         TracePath(_currentShapeType);
+        MoveImageAOnTopOfImageB(_hightlightImage.GetComponent<RectTransform>(), _irregularButton.GetComponent<RectTransform>());
         PruneSpheres();
     }
 
+    /// <summary>
+    /// quits the app
+    /// </summary>
+    public void QuitApplication()
+    {
+        Application.Quit();
+    }
+
+    /// <summary>
+    /// prunes spheres if there are too many for current path length
+    /// </summary>
     private void PruneSpheres()
     {
         if (GetMaxSpheres() < _currentSpheres.Count)
         {
+            int removedCount = 0;
             Debug.Log("pruned");
             for (int i = GetMaxSpheres(); i < _currentSpheres.Count; i++)
             {
                 Destroy(_currentSpheres[i]);
                 _currentSpheres.RemoveAt(i);
+                removedCount++;
             }
+
+            Debug.Log("max sphhere: " + GetMaxSpheres() + " pruned: " + removedCount);
+            DistributeSpheres();
         }
     }
 
-    public static Mesh Generate2DMesh(Vector2[] points)
+    /// <summary>
+    /// generates an array of points around the traced circle
+    /// </summary>
+    /// <param name="center"></param>
+    /// <param name="radius"></param>
+    /// <param name="count"></param>
+    /// <returns></returns>
+    Vector2[] GenerateCirclePoints(Vector2 center, float radius, int count = 36)
+    {
+        Vector2[] points = new Vector2[count];
+        float angleStep = 2 * Mathf.PI / count;
+
+        for (int i = 0; i < count; i++)
+        {
+            float angle = i * angleStep;
+            float x = Mathf.Cos(angle) * radius;
+            float y = Mathf.Sin(angle) * radius;
+
+            points[i] = new Vector2(center.x + x, center.y - y); 
+        }
+
+        return points;
+    }
+
+    /// <summary>
+    /// Generates mesh based on path points
+    /// </summary>
+    /// <param name="points"></param>
+    /// <returns></returns>
+    private static Mesh Generate2DMesh(Vector2[] points)
     {
         Mesh mesh = new Mesh();
 
@@ -521,7 +746,6 @@ public class PathTracer : MonoBehaviour
             triangles.Add(i + 1);
         }
 
-        // Optional: UVs = same as points
         Vector2[] uvs = points;
 
         mesh.vertices = vertices;
@@ -532,6 +756,29 @@ public class PathTracer : MonoBehaviour
         mesh.RecalculateBounds();
 
         return mesh;
+    }
+
+    /// <summary>
+    /// moves highlight image on top of currently selected path button
+    /// </summary>
+    /// <param name="imageA"></param>
+    /// <param name="imageB"></param>
+    private void MoveImageAOnTopOfImageB(RectTransform imageA, RectTransform imageB)
+    {
+        // Get screen position of imageB
+        Vector3 worldPosB = imageB.position;
+
+        // Convert world position to local position in imageA's parent
+        RectTransform parentA = imageA.parent as RectTransform;
+
+        if (RectTransformUtility.ScreenPointToLocalPointInRectangle(
+            parentA,
+            RectTransformUtility.WorldToScreenPoint(null, worldPosB),
+            null,
+            out Vector2 localPoint))
+        {
+            imageA.localPosition = localPoint;
+        }
     }
 
     #endregion
