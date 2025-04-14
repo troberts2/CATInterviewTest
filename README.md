@@ -5,6 +5,8 @@ A simple path tracing programming built along test specifications
 
 GitHub Repo: [link](https://github.com/troberts2/CATInterviewTest)
 
+WebGL Build: [link](https://troberts2.github.io./CATInterviewBuild/index.html)
+
 
 ## Authors
 
