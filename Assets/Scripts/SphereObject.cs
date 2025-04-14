@@ -61,7 +61,7 @@ public class SphereObject : MonoBehaviour
     {
         if (_data._isTracing)
         {
-            if (_data._currentShapeType == PathTracer.ShapeType.Square || _data._currentShapeType == PathTracer.ShapeType.Triangle || _data._currentShapeType == PathTracer.ShapeType.Irregular)
+            if (_data._currentShapeType == PathTracer.ShapeType.Square || _data._currentShapeType == PathTracer.ShapeType.Triangle || _data._currentShapeType == PathTracer.ShapeType.Irregular || _data._currentShapeType == PathTracer.ShapeType.Cube)
                 TracePolygon();
             else if (_data._currentShapeType == PathTracer.ShapeType.Circle)
                 TraceCircle();
@@ -76,7 +76,7 @@ public class SphereObject : MonoBehaviour
         _data._currentPosition = transform.position;
 
         //move target sphere toward next point
-        transform.position = Vector2.MoveTowards(transform.position, _data._nextPoint, _data._traceSpeed * Time.deltaTime);
+        transform.position = Vector3.MoveTowards(transform.position, _data._nextPoint, _data._traceSpeed * Time.deltaTime);
 
         //check if we've reached next point
         if (Vector2.Distance(transform.position, _data._nextPoint) < 0.01f)

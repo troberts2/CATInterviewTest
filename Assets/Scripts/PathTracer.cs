@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using DG.Tweening;
+using System.Linq;
 
 public class PathTracer : MonoBehaviour
 {
@@ -12,6 +13,8 @@ public class PathTracer : MonoBehaviour
     [SerializeField] private Transform[] _trianglePathPointTransforms;
 
     [SerializeField] private Transform[] _irregularPathPointTransforms;
+
+    [SerializeField] private Transform[] _cubePathPointTransforms;
 
     private Transform[] _currentPointTransforms;
 
@@ -38,6 +41,7 @@ public class PathTracer : MonoBehaviour
     [SerializeField] private Slider _traceSpeedSlider;
     
     [SerializeField] private Toggle _reverseToggle;
+    [SerializeField] private Toggle _meshDrawToggle;
 
     [Header("Sphere Settings")]
     [SerializeField] private GameObject _spherePrefab;
@@ -46,6 +50,8 @@ public class PathTracer : MonoBehaviour
     private float _pathLength;
     [SerializeField] private Transform _sphereHolder;
 
+    [SerializeField] private MeshFilter mf;
+
 
     public enum ShapeType
     {
@@ -53,6 +59,7 @@ public class PathTracer : MonoBehaviour
         Triangle,
         Circle,
         Irregular,
+        Cube,
         None
     }
 
@@ -61,7 +68,7 @@ public class PathTracer : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
-        //AddSphere();
+        
     }
 
     // Update is called once per frame
@@ -360,6 +367,25 @@ public class PathTracer : MonoBehaviour
         }
     }
 
+    public void OnMeshDrawToggle()
+    {
+        if(_meshDrawToggle != null)
+        {
+            if( _meshDrawToggle.isOn && _currentShapeType != ShapeType.Circle)
+            {
+                Vector2[] points = _currentPointTransforms.Select(t => (Vector2)t.position).ToArray();
+
+                mf.mesh = Generate2DMesh(points);
+            }
+            else
+            {
+                mf.mesh.Clear();
+                mf.mesh = new Mesh();
+            }
+
+        }
+    }
+
     public void OnBallsDropped()
     {
         StartCoroutine(DropBalls());
@@ -404,6 +430,9 @@ public class PathTracer : MonoBehaviour
             case ShapeType.Irregular:
                 _currentPointTransforms = _irregularPathPointTransforms;
                 break;
+            case ShapeType.Cube:
+                _currentPointTransforms = _cubePathPointTransforms;
+                break;
             case ShapeType.Circle:
                 _currentPointTransforms = null;
                 break;
@@ -417,6 +446,18 @@ public class PathTracer : MonoBehaviour
             sphereScript._data._currentPointTransforms = _currentPointTransforms;
         }
         DistributeSpheres();
+
+        if(_currentShapeType != ShapeType.Circle && _meshDrawToggle.isOn)
+        {
+            Vector2[] points = _currentPointTransforms.Select(t => (Vector2)t.position).ToArray();
+
+            mf.mesh = Generate2DMesh(points);
+        }
+        else
+        {
+            mf.mesh.Clear();
+            mf.mesh = new Mesh();
+        }
     }
 
     #endregion
@@ -462,6 +503,35 @@ public class PathTracer : MonoBehaviour
                 _currentSpheres.RemoveAt(i);
             }
         }
+    }
+
+    public static Mesh Generate2DMesh(Vector2[] points)
+    {
+        Mesh mesh = new Mesh();
+
+        // Convert Vector2s to Vector3s
+        Vector3[] vertices = points.Select(p => new Vector3(p.x, p.y, 0f)).ToArray();
+
+        // Generate triangle fan (assumes points form a convex shape)
+        List<int> triangles = new List<int>();
+        for (int i = 1; i < points.Length - 1; i++)
+        {
+            triangles.Add(0);      // center point
+            triangles.Add(i);
+            triangles.Add(i + 1);
+        }
+
+        // Optional: UVs = same as points
+        Vector2[] uvs = points;
+
+        mesh.vertices = vertices;
+        mesh.triangles = triangles.ToArray();
+        mesh.uv = uvs;
+
+        mesh.RecalculateNormals();
+        mesh.RecalculateBounds();
+
+        return mesh;
     }
 
     #endregion
